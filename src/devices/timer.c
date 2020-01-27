@@ -198,9 +198,9 @@ static void
 wake_sleeping_threads ()
 {
   struct list_elem *e = list_front (&sleeping_threads);
-  struct thread *t = list_entry (e, struct thread, allelem);
   while (e != list_end (&sleeping_threads))
     {
+      struct thread *t = list_entry (e, struct thread, allelem);
       if (ticks >= t->wake_time)
         {
           t->wake_time = -1;
