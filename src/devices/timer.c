@@ -94,25 +94,22 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks)
 {
+  if (ticks <= 0)
+    return;
   int64_t start = timer_ticks ();
   int64_t end = start + ticks;
 
   ASSERT (intr_get_level () == INTR_ON);
 
-  //disable interupts and check list of sleeping threads
-  //for start > t->wake_time. Add current thread to list
-  //with curr->wake_time = end.
+  struct thread *cur = thread_current ();
+  cur->wake_time = end;
 
   enum intr_level old_level = intr_disable ();
 
-  struct thread *cur = thread_current ();
-  cur->wake_time = end;
-  thread_block ();
   list_push_back (&sleeping_threads, &cur->allelem);
+  thread_block ();
 
   intr_set_level (old_level);
-
-  thread_yield();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -191,18 +188,20 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  wake_sleeping_threads ();
+
+  if (!list_empty (&sleeping_threads))
+    wake_sleeping_threads ();
 }
 
 /* Loop through sleeping threads and wake any with ticks > wake_time. */
 static void
 wake_sleeping_threads ()
 {
-  struct list_elem *e = list_begin (&sleeping_threads);
+  struct list_elem *e = list_front (&sleeping_threads);
+  struct thread *t = list_entry (e, struct thread, allelem);
   while (e != list_end (&sleeping_threads))
     {
-      struct thread *t = list_entry (e, struct thread, allelem);
-      if (ticks > t->wake_time)
+      if (ticks >= t->wake_time)
         {
           t->wake_time = -1;
           thread_unblock (t);
